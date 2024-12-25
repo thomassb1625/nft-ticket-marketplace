@@ -1,62 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useWeb3 } from '../context/Web3Context';
 import { ethers } from 'ethers';
-
-interface Ticket {
-  tokenId: number;
-  artist: string;
-  eventDate: Date;
-  venue: string;
-  section: string;
-  seatNumber: number;
-  price: string;
-  seller: string;
-}
+import { DUMMY_EVENTS, type Ticket } from '../constants/dummyData';
 
 const Home: React.FC = () => {
   const { marketplace, ticketNFT } = useWeb3();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadTickets();
-  }, [marketplace, ticketNFT]);
-
-  const loadTickets = async () => {
-    if (!marketplace || !ticketNFT) return;
-
+  const loadTickets = useCallback(async () => {
     try {
-      // This is a simplified example - you'll need to implement proper event listening
-      // and filtering based on your smart contract implementation
-      const filter = marketplace.filters.TicketListed();
-      const events = await marketplace.queryFilter(filter);
-      
-      const ticketsData = await Promise.all(
-        events.map(async (event: any) => {
-          const tokenId = event.args.tokenId.toNumber();
-          const listing = await marketplace.getListing(tokenId);
-          const details = await ticketNFT.getTicketDetails(tokenId);
-          
-          return {
-            tokenId,
-            artist: details.artist,
-            eventDate: new Date(details.eventDate.toNumber() * 1000),
-            venue: details.venue,
-            section: details.section,
-            seatNumber: details.seatNumber.toNumber(),
-            price: ethers.utils.formatEther(listing.price),
-            seller: listing.seller,
-          };
-        })
-      );
+      let ticketsData: Ticket[] = [];
 
-      setTickets(ticketsData.filter((ticket) => ticket.price !== '0'));
+      if (marketplace && ticketNFT) {
+        // Try to get real listings from the blockchain
+        const filter = marketplace.filters.TicketListed();
+        const events = await marketplace.queryFilter(filter);
+
+        const realTickets = await Promise.all(
+          events.map(async (event: any) => {
+            const tokenId = event.args.tokenId.toNumber();
+            const listing = await marketplace.getListing(tokenId);
+            const details = await ticketNFT.getTicketDetails(tokenId);
+
+            return {
+              tokenId,
+              artist: details.artist,
+              eventDate: new Date(details.eventDate.toNumber() * 1000),
+              venue: details.venue,
+              section: details.section,
+              seatNumber: details.seatNumber.toNumber(),
+              price: ethers.utils.formatEther(listing.price),
+              seller: listing.seller,
+              imageUrl: '/images/artists/default.jpg' // You might want to store this in IPFS or your contract
+            };
+          })
+        );
+
+        ticketsData = realTickets.filter((ticket) => ticket.price !== '0');
+      }
+
+      // If no real tickets, use dummy data
+      if (ticketsData.length === 0) {
+        ticketsData = DUMMY_EVENTS.map((event, index) => ({
+          ...event,
+          tokenId: index + 1
+        }));
+      }
+
+      setTickets(ticketsData);
     } catch (error) {
       console.error('Error loading tickets:', error);
+      // Fall back to dummy data on error
+      setTickets(DUMMY_EVENTS.map((event, index) => ({
+        ...event,
+        tokenId: index + 1
+      })));
     } finally {
       setLoading(false);
     }
-  };
+  }, [marketplace, ticketNFT]);
+
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
 
   const buyTicket = async (tokenId: number, price: string) => {
     if (!marketplace) return;
@@ -89,12 +96,16 @@ const Home: React.FC = () => {
             key={ticket.tokenId}
             className="bg-white rounded-lg shadow-md overflow-hidden"
           >
+            <div 
+              className="h-48 bg-cover bg-center"
+              style={{ backgroundImage: `url(${ticket.imageUrl})` }}
+            />
             <div className="p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 {ticket.artist}
               </h3>
               <p className="text-gray-600 mb-4">
-                {ticket.venue} - {ticket.eventDate.toLocaleDateString()}
+                {ticket.venue} - {ticket.eventDate.toLocaleDateString()} {ticket.eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
               <div className="mb-4">
                 <p className="text-sm text-gray-500">
@@ -105,7 +116,7 @@ const Home: React.FC = () => {
                 </p>
               </div>
               <button
-                onClick={() => buyTicket(ticket.tokenId, ticket.price)}
+                onClick={() => buyTicket(ticket.tokenId!, ticket.price!)}
                 className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors"
               >
                 Buy Ticket
