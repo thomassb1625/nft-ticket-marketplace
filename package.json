@@ -10,7 +10,7 @@
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.9.0",
+    "@openzeppelin/contracts": "^4.9.6",
     "ethers": "^5.7.2"
   },
   "devDependencies": {

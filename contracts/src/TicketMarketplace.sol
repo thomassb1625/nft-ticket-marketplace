@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/security/ReentrancyGuard.sol";
+import "@openzeppelin/token/ERC721/IERC721.sol";
+import "@openzeppelin/access/Ownable.sol";
 import "./TicketNFT.sol";
 
 contract TicketMarketplace is ReentrancyGuard, Ownable {
